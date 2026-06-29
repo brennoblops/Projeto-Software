@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, orientation=landscape">
+    <title>Domo de Software - Versão Estável V25</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body, html { margin: 0; padding: 0; overflow: hidden; width: 100%; height: 100%; background-color: #05030a; font-family: sans-serif; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        #loading-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle, #1a0b2e 0%, #05030a 100%);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; transition: opacity 0.5s ease;
+        }
+        .logo-container { display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; }
+        .logo-icon {
+            width: 65px; height: 65px; background: linear-gradient(135deg, #c084fc, #22d3ee);
+            border-radius: 15px; box-shadow: 0 0 30px rgba(192, 132, 252, 0.5);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; color: white; font-weight: bold;
+        }
+        .logo-text { color: #f8fafc; font-size: 20px; font-weight: bold; letter-spacing: 2px; margin-top: 10px; text-transform: uppercase; }
+        
+        #main-menu {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 20px; padding: 20px; z-index: 9980; transition: opacity 0.6s ease;
+            background: linear-gradient(to bottom, rgba(5,3,10,0.4) 0%, rgba(5,3,10,0.95) 100%);
+        }
+        .menu-title-box { text-align: center; }
+        .menu-logo {
+            width: 60px; height: 60px; background: linear-gradient(135deg, #22d3ee, #c084fc);
+            border-radius: 15px; margin: 0 auto 10px; display: flex; align-items: center; justify-content: center;
+            font-size: 28px; color: white; font-weight: bold; box-shadow: 0 0 25px rgba(192, 132, 252, 0.4);
+        }
+        .menu-h1 { color: #ffffff; font-size: 32px; font-weight: 800; letter-spacing: 4px; margin: 0; text-transform: uppercase; }
+        .menu-p { color: #cbd5e1; font-size: 11px; font-family: monospace; margin-top: 5px; letter-spacing: 2px; }
+        
+        .audio-auth-container {
+            display: flex; align-items: center; gap: 12px; background: rgba(34, 211, 238, 0.08);
+            padding: 10px 20px; border-radius: 20px; border: 1px solid rgba(192, 132, 252, 0.3);
+            margin-bottom: 5px; cursor: pointer; transition: background 0.3s;
+        }
+        .audio-auth-container:hover { background: rgba(34, 211, 238, 0.15); }
+        .audio-checkbox { display: none; }
+        .audio-custom-switch {
+            width: 40px; height: 22px; background: #2e1e4a; border-radius: 11px;
+            position: relative; transition: background 0.3s; border: 1px solid rgba(255,255,255,0.1);
+        }
+        .audio-custom-switch::before {
+            content: ''; position: absolute; width: 16px; height: 16px;
+            border-radius: 50%; background: #cbd5e1; top: 2px; left: 2px;
+            transition: transform 0.3s, background 0.3s;
+        }
+        .audio-checkbox:checked + .audio-custom-switch { background: #22d3ee; }
+        .audio-checkbox:checked + .audio-custom-switch::before { transform: translateX(18px); background: #ffffff; }
+        .audio-label-text { color: #e2e8f0; font-size: 12px; font-weight: bold; letter-spacing: 1px; font-family: monospace; }
+
+        .start-btn {
+            background: linear-gradient(135deg, #22d3ee, #c084fc); color: white;
+            border: none; padding: 15px 40px; font-size: 14px; font-weight: bold;
+            border-radius: 30px; letter-spacing: 2px; cursor: pointer; text-transform: uppercase;
+            box-shadow: 0 0 35px rgba(192, 132, 252, 0.4); min-width: 240px;
+            transition: transform 0.2s;
+        }
+        .start-btn:active { transform: scale(0.95); }
+
+        #reset-tour-btn {
+            position: fixed; top: 15px; right: 15px; background: rgba(30, 11, 54, 0.75);
+            color: #22d3ee; border: 1px solid #c084fc; padding: 8px 16px; font-size: 11px;
+            font-weight: bold; font-family: monospace; border-radius: 4px; cursor: pointer;
+            z-index: 10010; letter-spacing: 1px; display: none; text-transform: uppercase;
+        }
+
+        @media screen and (orientation: portrait) { #landscape-warning { display: flex !important; } }
+        #landscape-warning {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #05030a;
+            z-index: 10005; display: none; flex-direction: column; align-items: center; justify-content: center; color: #fff; text-align: center;
+        }
+
+        #debug-status {
+            position: fixed; top: 15px; left: 15px; background: rgba(5,3,10,0.9);
+            padding: 8px 12px; border-radius: 5px; color: #e2e8f0; font-family: monospace;
+            font-size: 11px; z-index: 10000; border: 1px solid #2e1e4a; pointer-events: none;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+    <div id="landscape-warning">
+        <h2>🔄 Por favor, vire o dispositivo de lado</h2>
+    </div>
+
+    <div id="loading-screen">
+        <div class="logo-container">
+            <div class="logo-icon">&lt;/&gt;</div>
+            <div class="logo-text">Domo Software</div>
+        </div>
+    </div>
+
+    <div id="main-menu">
+        <div class="menu-title-box">
+            <div class="menu-logo">&lt;/&gt;</div>
+            <h1 class="menu-h1">Domo Software</h1>
+            <div class="menu-p">PAINÉIS DE CARREIRA INTEGRADOS V25</div>
+        </div>
+        
+        <label class="audio-auth-container" for="audio-toggle">
+            <input type="checkbox" id="audio-toggle" class="audio-checkbox" checked>
+            <div class="audio-custom-switch"></div>
+            <span class="audio-label-text">ATIVAR SOM RETRO 8-BIT</span>
+        </label>
+
+        <button class="start-btn" onclick="startIntroFlight()">Iniciar Jornada</button>
+    </div>
+
+    <button id="reset-tour-btn" onclick="triggerHyperSpaceReset()">Reiniciar Viagem</button>
+
+    <div id="debug-status">Sincronizando ambiente...</div>
+
+<script>
+    const arquiteturaData = [
+        { title: "1 – FORMAÇÃO NECESSÁRIA", items: ["Bacharelado em Eng. de Software ou Computação", "Pós em Arquitetura de Soluções/Sistemas", "Longa experiência como Desenvolvedor Sênior", "Certificações globais (TOGAF, AWS Solutions)", "Domínio de patterns e sistemas distribuídos", "Prática em design de software complexo"] },
+        { title: "2 – HARD & SOFT SKILLS", isSplit: true, group1: { title: "HARD SKILLS", lines: ["Microservices e Event-Driven", "Modelagem de dados e cache", "Segurança e criptografia", "DevOps, CI/CD e IaC"] }, group2: { title: "SOFT SKILLS", lines: ["Liderança técnica atuante", "Comunicação corporativa macro", "Visão holística de negócio", "Resolução de trade-offs"] } },
+        { title: "3 – AMBIENTES E ATUAÇÃO", isSplit: true, group1: { title: "AMBIENTES", lines: ["Big Techs e multinacionais", "Fintechs e grandes bancos", "Consultorias de elite", "Projetos globais abertos"] }, group2: { title: "ÁREAS DE ATUAÇÃO", lines: ["Criação de blueprints", "Refatoração de legados", "Avaliação de tecnologias", "Escala e resiliência"] } },
+        { title: "4 – MERCADO ATUAL", items: ["Altíssima demanda por sistemas distribuídos", "Escassez severa de profissionais qualificados", "Migração massiva de empresas para o digital", "Papel central na governança e custos de TI", "Contratações globais com ótimos salários"] },
+        { title: "5 – MÉDIA SALARIAL", items: ["Nível Nacional: R$ 16.000 a R$ 28.000+ (CLT/PJ)", "Mercado Internacional: US$ 6.000 a US$ 11.000+", "Ganhos proporcionais à criticidade das decisões", "Bônus por metas de performance do sistema"] },
+        { title: "6 – EU ME VEJO NESSA PROFISSÃO?", items: ["Interesse em resolver quebra-cabeças macros", "Gosto por desenhar estruturas e fluxos de dados", "Foco em decisões estratégicas sobre o código", "Boa tolerância a altas responsabilidades", "Desejo de mentorar engenheiros menos experientes"] },
+        { title: "7 – AMBIENTE QUE MAIS CHAMOU ATENÇÃO", items: ["Ecossistemas financeiros de altíssimo tráfego", "Desafios de concorrência na casa de milissegundos", "Criação de bases estáveis para produtos de escala", "Culturas técnicas focadas em dados e métricas", "Laboratórios de inovação em grandes corporações"] },
+        { title: "8 – VANTAGENS E DIFICULDADES", isSplit: true, group1: { title: "VANTAGENS", lines: ["Autonomia técnica e peso", "Salários no topo do mercado", "Estímulo analítico diário", "Impacto direto na empresa"] }, group2: { title: "DIFICULDADES", lines: ["Responsabilidade por falhas", "Pressão e atrito entre times", "Cobrança por custos de nuvem", "Atualização constante"] } },
+        { title: "9 – PERSPECTIVAS FUTURAS", items: ["Arquiteturas integradas com IA e LLMs locais", "Sistemas descentralizados e Edge Computing", "Foco em computação sustentável (Green IT)", "Evolução do design arquitetural assistido por IA", "Consolidação como tradutor IA/Negócio"] }
+    ];
+
+    const engComputacaoData = [
+        { title: "1 – FORMAÇÃO NECESSÁRIA", items: ["Bacharelado em Engenharia da Computação", "Registro profissional ativo (CREA)", "Forte base em física, cálculo e eletrônica", "Especialização em sistemas embarçados ou IoT", "Domínio de linguagens de baixo nível (C/C++)", "Prática em laboratórios de circuitos e microchips"] },
+        { title: "2 – HARD & SOFT SKILLS", isSplit: true, group1: { title: "HARD SKILLS", lines: ["Design de circuitos e PCBs", "Firmware e RTOS (Real-Time)", "Arquitetura de processadores", "FPGA e lógica digital"] }, group2: { title: "SOFT SKILLS", lines: ["Raciocínio lógico e matemático", "Precisão técnica milimétrica", "Visão sistêmica físico/digital", "Trabalho multidisciplinar"] } },
+        { title: "3 – AMBIENTES E ATUAÇÃO", isSplit: true, group1: { title: "AMBIENTES", lines: ["Indústria automobilística/Aero", "Fabricantes de eletroeletrônicos", "Setor de automação e robótica", "Telecomunicações e redes"] }, group2: { title: "ÁREAS DE ATUAÇÃO", lines: ["Desenvolvimento de hardware", "Codificação de firmware", "Prototipagem de dispositivos", "Integração de sistemas IoT"] } },
+        { title: "4 – MERCADO ATUAL", items: ["Alta demanda com a expansão de dispositivos IoT", "Setor industrial buscando automação pesada", "Escassez de engenheiros com domínio físico e digital", "Crescimento do mercado de hardware médico e agro", "Mercado concentrado em polos industriais e hubs"] },
+        { title: "5 – MÉDIA SALARIAL", items: ["Nível Nacional: R$ 8.500 a R$ 18.000+ (Piso da categoria)", "Mercado Internacional: US$ 5.000 a US$ 10.000+", "Salários altos para especialistas em microchips/aero", "Valorização ligada à experiência em laboratório"] },
+        { title: "6 – EU ME VEJO NESSA PROFISSÃO?", items: ["Fascínio em ver o código controlar o mundo físico", "Interesse por eletrônica, placas e soldagem", "Apreço pela física por trás dos computadores", "Gosto por otimização extrema de memória e energia", "Desejo de criar produtos e gadgets físicos palpáveis"] },
+        { title: "7 – AMBIENTE QUE MAIS CHAMOU ATENÇÃO", items: ["Laboratórios de hardware com osciloscópios", "Linhas de montagem automatizadas industriais", "Projetos de robótica móvel e veículos autônomos", "Centros de desenvolvimento de chips semicondutores", "Cultura de engenharia focada em testes rigorosos"] },
+        { title: "8 – VANTAGENS E DIFICULDADES", isSplit: true, group1: { title: "VANTAGENS", lines: ["Profissão sólida regulamentada", "Criação de soluções físicas", "Baixa saturação no mercado", "Carreira valorizada lá fora"] }, group2: { title: "DIFICULDADES", lines: ["Custo alto de prototipagem", "Erros de hardware são caros", "Curva de aprendizado íngreme", "Menos vagas de home office"] } },
+        { title: "9 – PERSPECTIVAS FUTURAS", items: ["Chips dedicados para processar IA locais (Edge AI)", "Desenvolvimento de hardware para computação quântica", "Aumento de implantes e biomédicos conectados", "Dispositivos movidos a energias renováveis e colheita", "Automação industrial guiada por robôs autônomos"] }
+    ];
+
+    const adsData = [
+        { title: "1 – FORMAÇÃO NECESSÁRIA", items: ["Tecnólogo em Análise e Des. de Sistemas (ADS)", "Foco em aprendizado prático e rápido", "Cursos complementares focados nas stacks em alta", "Construção ativa de portfólio no GitHub", "Domínio de lógica de programação e algoritmos", "Conhecimento de bancos de dados relacionais e APIs"] },
+        { title: "2 – HARD & SOFT SKILLS", isSplit: true, group1: { title: "HARD SKILLS", lines: ["Programação (Java, C#, JS, Python)", "Bancos de dados SQL e NoSQL", "Versionamento com Git e GitHub", "Metodologias Ágeis (Scrum)"] }, group2: { title: "SOFT SKILLS", lines: ["Resolução prática de problemas", "Adaptabilidade a mudanças", "Comunicação fluida em equipe", "Aprendizado autodidata veloz"] } },
+        { title: "3 – AMBIENTES E ATUAÇÃO", isSplit: true, group1: { title: "AMBIENTES", lines: ["Software Houses e agências", "Startups de diversos nichos", "Departamentos de TI internos", "Empresas em digitalização"] }, group2: { title: "ÁREAS DE ATUAÇÃO", lines: ["Desenvolvimento Full-Stack", "Análise e levantamento de dados", "Suporte e melhoria de sistemas", "Construção de aplicações web"] } },
+        { title: "4 – MERCADO ATUAL", items: ["Porta de entrada mais rápida para o mercado tech", "Grande volume de vagas para níveis júnior/pleno", "Alta rotatividade exige reposição contínua", "Forte demanda por digitalização de pequenos negócios", "Foco corporativo em entregas rápidas de valor"] },
+        { title: "5 – MÉDIA SALARIAL", items: ["Nível Inicial: R$ 3.500 a R$ 6.000 (Júnior)", "Profissionais Pleno/Sênior: R$ 7.000 a R$ 14.000+", "Evolução salarial rápida baseada na entrega", "Grandes chances de contratação no modelo PJ"] },
+        { title: "6 – EU ME VEJO NESSA PROFISSÃO?", items: ["Quero um curso focado direto no mercado de trabalho", "Gosto de ver o resultado prático do código rápido", "Amo construir sistemas úteis para o dia a dia", "Tenho facilidade em me adaptar a novas ferramentas", "Prefiro aprender fazendo projetos reais e dinâmicos"] },
+        { title: "7 – AMBIENTE QUE MAIS CHAMOU ATENÇÃO", items: ["Startups ágeis com ambiente jovem e flexível", "Software houses com grande diversidade de projetos", "Times focados em resolver dores de usuários reais", "Cultura de squad com rituais diários dinâmicos", "Ambientes que valorizam a autonomia e proatividade"] },
+        { title: "8 – VANTAGENS E DIFICULDADES", isSplit: true, group1: { title: "VANTAGENS", lines: ["Formação rápida e prática", "Alta empregabilidade geral", "Trabalho remoto acessível", "Várias opções de atuação"] }, group2: { title: "DIFICULDADES", lines: ["Concorrência alta na entrada", "Exigência de ser generalista", "Prazos apertados de entrega", "Necessidade de se atualizar"] } },
+        { title: "9 – PERSPECTIVAS FUTURAS", items: ["Desenvolvimento acelerado por assistentes de IA", "Crescimento de plataformas Low-Code integradas", "Sistemas focados em automação de fluxos de trabalho", "Forte integração de microsserviços simples e rápidos", "Demanda contínua por manutenção de sistemas legados"] }
+    ];
+
+    const frontEndData = [
+        { title: "1 – FORMAÇÃO NECESSÁRIA", items: ["Cursos focados em Desenvolvimento Web/Front-End", "Domínio absoluto da tríade: HTML5, CSS3 e JavaScript", "Especialização em frameworks (React, Vue ou Angular)", "Estudo de Design System, UI/UX e acessibilidade", "Portfólio online impecável e responsivo", "Conhecimento de ferramentas de build (Vite, Webpack)"] },
+        { title: "2 – HARD & SOFT SKILLS", isSplit: true, group1: { title: "HARD SKILLS", lines: ["JavaScript Moderno (ES6+) e TS", "React.js / Next.js / Tailwind CSS", "Consumo de APIs REST / GraphQL", "Performance Web e SEO básico"] }, group2: { title: "SOFT SKILLS", lines: ["Empatia com o usuário final", "Olho clínico para design/estética", "Comunicação com designers", "Atenção a detalhes visuais"] } },
+        { title: "3 – AMBIENTES E ATUAÇÃO", isSplit: true, group1: { title: "AMBIENTES", lines: ["Agências digitais e estúdios", "Empresas de produto digital (SaaS)", "Plataformas de E-commerce", "Trabalho Freelance global"] }, group2: { title: "ÁREAS DE ATUAÇÃO", lines: ["Codificação de interfaces web", "Criação de SPAs e apps mobile", "Otimização de animações/telas", "Garantia de acessibilidade web"] } },
+        { title: "4 – MERCADO ATUAL", items: ["O visual e a experiência ditam o sucesso do produto", "Busca constante por interfaces ricas e ultra-rápidas", "Grande volume de vagas remotas nacionais e globais", "Exigência por profissionais que entendam além do código", "Alta demanda gerada pelo boom de aplicativos web modernos"] },
+        { title: "5 – MÉDIA SALARIAL", items: ["Nível Inicial (Júnior): R$ 4.000 a R$ 6.500", "Nível Sênior / Especialista: R$ 12.000 a R$ 20.000+", "Mercado gringo paga muito bem por devs React/TS seniores", "Ganhos adicionais expressivos com projetos autônomos"] },
+        { title: "6 – EU ME VEJO NESSA PROFISSÃO?", items: ["Amo ver o impacto visual imediato do meu código", "Interesse em criar experiências bonitas e fáceis", "Gosto da união entre design, lógica e criatividade", "Quero dominar a camada que interage direto com pessoas", "Sinto empolgação em otimizar a usabilidade de um site"] },
+        { title: "7 – AMBIENTE QUE MAIS CHAMOU ATENÇÃO", items: ["Times focados em Produto e Experiência do Usuário", "Empresas inovadoras que investem em design de ponta", "Projetos de interfaces interativas e ricas (animações/3D)", "Ambientes colaborativos entre designers e engenheiros", "Cultura focada em feedbacks rápidos dos usuários reais"] },
+        { title: "8 – VANTAGENS E DIFICULDADES", isSplit: true, group1: { title: "VANTAGENS", lines: ["Resultado visual instantâneo", "Forte mercado remoto/gringo", "Comunidade gigante e ativa", "Área criativa e estimulante"] }, group2: { title: "DIFICULDADES", lines: ["Incompatibilidade de browsers", "Mudança rápida de frameworks", "Lidar com telas responsivas", "Cobrança por performance"] } },
+        { title: "9 – PERSPECTIVAS FUTURAS", items: ["Interfaces geradas dinamicamente em tempo real por IA", "Consolidação de Server-Driven UI no desenvolvimento", "Aumento de experiências imersivas na web (WebXR/3D)", "Foco extremo em performance e Core Web Vitals", "Interfaces de voz e gestos integradas ao ecossistema"] }
+    ];
+
+    const scene = new THREE.Scene();
+    
+    const skyCanvas = document.createElement('canvas'); skyCanvas.width = 512; skyCanvas.height = 512;
+    const sCtx = skyCanvas.getContext('2d');
+    const skyGrad = sCtx.createRadialGradient(256, 380, 20, 256, 256, 300);
+    skyGrad.addColorStop(0, '#1d0b30'); skyGrad.addColorStop(0.4, '#0d0517'); skyGrad.addColorStop(1, '#030105');
+    sCtx.fillStyle = skyGrad; sCtx.fillRect(0,0,512,512);
+    scene.background = new THREE.CanvasTexture(skyCanvas);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const menuPosition = new THREE.Vector3(0, 35, 120); 
+    const centerPosition = new THREE.Vector3(0, 4, 0); 
+    let innerInfoCamPosition = new THREE.Vector3(0, 14, 0);
+    let cameraTargetLookAt = new THREE.Vector3(0, 14, -20); 
+    camera.position.copy(menuPosition);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; 
+    renderer.toneMappingExposure = 1.25; 
+    renderer.outputEncoding = THREE.sRGBEncoding; 
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.25); scene.add(ambientLight);
+    const hemiLight = new THREE.HemisphereLight(0xffd7ff, 0x110822, 0.3); hemiLight.position.set(0, 50, 0); scene.add(hemiLight);
+    const dirLight = new THREE.DirectionalLight(0xe8d5ff, 1.8); dirLight.position.set(30, 40, 40); dirLight.castShadow = true;
+    dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048; scene.add(dirLight);
+
+    let audioEnabled = true;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function play8BitSFX(type) {
+        if (!audioEnabled) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        if (type === 'coin' || type === 'zoom') {
+            const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); osc.type = 'square';
+            osc.frequency.setValueAtTime(523.25, now); osc.frequency.setValueAtTime(659.25, now + 0.08);
+            gainNode.gain.setValueAtTime(0.15, now); gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.3);
+        } else if (type === 'jump' || type === 'flight') {
+            const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); osc.type = 'square';
+            osc.frequency.setValueAtTime(150, now); osc.frequency.exponentialRampToValueAtTime(600, now + 0.25);
+            gainNode.gain.setValueAtTime(0.15, now); gainNode.gain.linearRampToValueAtTime(0.001, now + 0.25);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.25);
+        } else if (type === 'click' || type === 'rotate') {
+            const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); osc.type = 'square';
+            osc.frequency.setValueAtTime(330, now); gainNode.gain.setValueAtTime(0.12, now); gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.08);
+        } else if (type === 'pipe' || type === 'back') {
+            const osc = audioCtx.createOscillator(); const gainNode = audioCtx.createGain(); osc.type = 'square';
+            osc.frequency.setValueAtTime(400, now); osc.frequency.linearRampToValueAtTime(100, now + 0.2);
+            gainNode.gain.setValueAtTime(0.15, now); gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+            osc.connect(gainNode); gainNode.connect(audioCtx.destination); osc.start(now); osc.stop(now + 0.2);
+        }
+    }
+
+    function create3DTree() {
+        const treeGroup = new THREE.Group(); const heightRandom = Math.random() * 1.2 + 1.8; const radiusRandom = Math.random() * 0.15 + 0.12; const foliageSize = Math.random() * 0.4 + 0.9;
+        const trunkGeo = new THREE.CylinderGeometry(radiusRandom * 0.6, radiusRandom, heightRandom, 5); const trunkMat = new THREE.MeshStandardMaterial({ color: 0x1d122b, roughness: 0.9, flatShading: true });
+        const trunk = new THREE.Mesh(trunkGeo, trunkMat); trunk.position.y = heightRandom / 2; trunk.castShadow = true; trunk.receiveShadow = true; treeGroup.add(trunk);
+        const geoDetail = Math.random() > 0.5 ? 0 : 1; const foliageGeo = new THREE.IcosahedronGeometry(foliageSize, geoDetail); const foliageMat = new THREE.MeshStandardMaterial({ color: 0x3b0764, emissive: 0x1e013a, roughness: 0.6, flatShading: true });
+        const foliage = new THREE.Mesh(foliageGeo, foliageMat); foliage.position.y = heightRandom; foliage.castShadow = true; treeGroup.add(foliage);
+        return treeGroup;
+    }
+
+    function create3DSubStone() {
+        const geoType = Math.random() > 0.5 ? new THREE.DodecahedronGeometry(0.6, 0) : new THREE.IcosahedronGeometry(0.5, 0); const stoneMat = new THREE.MeshStandardMaterial({ color: 0x24143e, roughness: 0.8, flatShading: true }); const stone = new THREE.Mesh(geoType, stoneMat);
+        stone.scale.set(Math.random() * 1.4 + 0.5, Math.random() * 1.8 + 0.4, Math.random() * 1.4 + 0.5); stone.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0); stone.castShadow = true; stone.receiveShadow = true; return stone;
+    }
+
+    const auroraGroup = new THREE.Group(); scene.add(auroraGroup); const auroraWaves = []; const waveCount = 3; const segmentsPerWave = 40;
+    for (let w = 0; w < waveCount; w++) {
+        const points = []; const radius = 180 + w * 15;
+        for (let i = 0; i <= segmentsPerWave; i++) { const angle = (i / segmentsPerWave) * Math.PI - (Math.PI / 2); points.push(new THREE.Vector3(Math.sin(angle) * radius, 40 + (w * 8), Math.cos(angle) * radius - 50)); }
+        const planeGeo = new THREE.PlaneGeometry(1, 45, 1, segmentsPerWave); const posAttr = planeGeo.attributes.position;
+        for (let i = 0; i < posAttr.count; i++) { const segIdx = Math.floor(i / 2); const isTop = (i % 2 === 1); const curvePoint = points[segIdx] || points[points.length - 1]; posAttr.setX(i, curvePoint.x); posAttr.setY(i, isTop ? curvePoint.y + 40 : curvePoint.y); posAttr.setZ(i, curvePoint.z); }
+        planeGeo.computeVertexNormals(); const auroraMesh = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ color: [0xc084fc, 0x22d3ee, 0xec4899][w], transparent: true, opacity: 0.15, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, depthWrite: false }));
+        auroraGroup.add(auroraMesh); auroraWaves.push({ mesh: auroraMesh, origArray: posAttr.array.slice(), speed: 0.8 + (w * 0.4), frequency: 0.05 + (w * 0.02) });
+    }
+
+    const starCount = 1200; const starGeometry = new THREE.BufferGeometry(); const starPositions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i += 3) { starPositions[i] = (Math.random() - 0.5) * 350; starPositions[i + 1] = (Math.random() - 0.5) * 250; starPositions[i + 2] = Math.random() * 400 - 200; }
+    starGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const pCanvas = document.createElement('canvas'); pCanvas.width = 16; pCanvas.height = 16; const pCtx = pCanvas.getContext('2d'); const grad = pCtx.createRadialGradient(8,8,0, 8,8,8); grad.addColorStop(0, '#fdf4ff'); grad.addColorStop(1, 'transparent'); pCtx.fillStyle = grad; pCtx.fillRect(0,0,16,16);
+    const starMaterial = new THREE.PointsMaterial({ size: 0.7, map: new THREE.CanvasTexture(pCanvas), transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false });
+    scene.add(new THREE.Points(starGeometry, starMaterial));
+
+    const totalInternalPanels = 9;
+    const distCenterPanel = 16; 
+
+    function generateDynamicTexture(panelIndex, themeColor, dataset) {
+        const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 420; const ctx = canvas.getContext('2d');
+        const data = dataset[panelIndex];
+
+        ctx.fillStyle = 'rgba(10, 6, 25, 0.98)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = themeColor; ctx.lineWidth = 6; ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+        
+        ctx.fillStyle = themeColor; ctx.font = 'Bold 22px sans-serif'; ctx.fillText(data.title, 30, 50);
+        ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(30, 70); ctx.lineTo(570, 70); ctx.stroke();
+
+        ctx.fillStyle = '#cbd5e1'; ctx.font = '16px sans-serif';
+
+        if (!data.isSplit) {
+            let y = 115;
+            data.items.forEach(line => { ctx.fillText("• " + line, 35, y); y += 35; });
+        } else {
+            ctx.fillStyle = themeColor; ctx.font = 'Bold 17px sans-serif';
+            ctx.fillText(data.group1.title, 35, 105);
+            ctx.fillText(data.group2.title, 315, 105);
+
+            ctx.fillStyle = '#cbd5e1'; ctx.font = '15px sans-serif';
+            let y1 = 145; data.group1.lines.forEach(line => { ctx.fillText("• " + line, 35, y1); y1 += 32; });
+            let y2 = 145; data.group2.lines.forEach(line => { ctx.fillText("• " + line, 315, y2); y2 += 32; });
+        }
+
+        ctx.fillStyle = '#6b21a8'; ctx.font = 'Bold 13px monospace'; ctx.textAlign = 'center'; 
+        ctx.fillText("[ TOQUE NAS LATERAIS PARA AVANÇAR OS PAINÉIS ]", 300, 395);
+        return new THREE.CanvasTexture(canvas);
+    }
+
+    const infoPanelGroup = new THREE.Group(); scene.add(infoPanelGroup);
+    infoPanelGroup.position.set(0, -50, 0); 
+
+    const infoPanels = [];
+    for(let i=0; i<totalInternalPanels; i++) {
+        const geo = new THREE.PlaneGeometry(13.5, 9.5);
+        const mat = new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, roughness: 0.3, metalness: 0.2, transparent: true, opacity: 0 });
+        const mesh = new THREE.Mesh(geo, mat);
+        
+        const angle = i * (2 * Math.PI / totalInternalPanels);
+        mesh.position.set(Math.sin(angle) * distCenterPanel, 14, Math.cos(angle) * distCenterPanel);
+        mesh.rotation.y = angle + Math.PI; mesh.castShadow = true;
+        
+        infoPanelGroup.add(mesh); infoPanels.push(mesh);
+    }
+
+    const backBtnMat = new THREE.MeshStandardMaterial({ color: 0x2e1e4a, roughness: 0.5, metalness: 0.5, transparent: true, opacity: 0 });
+    const backBtnMesh = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.8, 1), backBtnMat); backBtnMesh.position.set(0, 6.5, 0); infoPanelGroup.add(backBtnMesh);
+
+    const backCanvas = document.createElement('canvas'); backCanvas.width = 256; backCanvas.height = 64;
+    const bCtx = backCanvas.getContext('2d'); bCtx.fillStyle = '#ffffff'; bCtx.font = 'Bold 22px sans-serif'; bCtx.textAlign = 'center'; bCtx.textBaseline = 'middle'; bCtx.fillText("VOLTAR À ILHA", 128, 32);
+    const backSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(backCanvas), transparent: true }));
+    backSprite.scale.set(3, 0.75, 1); backSprite.position.set(0, 6.5, 0.6); infoPanelGroup.add(backSprite);
+
+    const datasets = [arquiteturaData, engComputacaoData, adsData, frontEndData];
+
+    function buildCircularPanelsForArea(areaColor) {
+        const currentDataset = datasets[currentAngleIndex];
+        for(let i=0; i<totalInternalPanels; i++) {
+            const newTex = generateDynamicTexture(i, areaColor, currentDataset);
+            if(infoPanels[i].material.map) infoPanels[i].material.map.dispose();
+            infoPanels[i].material.dispose();
+            infoPanels[i].material = new THREE.MeshStandardMaterial({
+                map: newTex,
+                side: THREE.DoubleSide,
+                roughness: 0.3,
+                metalness: 0.2,
+                transparent: true,
+                opacity: 0
+            });
+        }
+    }
+
+    const portalLabels = []; const plasmaMeshes = []; 
+    let currentAngleIndex = 0; let internalSubPanelIndex = 0;
+    let targetRotationY = 0; let isZoomedIn = false; let isInsideInfoCenter = false; 
+    let introState = "MENU"; let introProgress = 0; let centerTransitionProgress = 0;
+
+    const zoomTargets = [new THREE.Vector3(0, 4, -13), new THREE.Vector3(13, 4, 0), new THREE.Vector3(0, 4, 13), new THREE.Vector3(-13, 4, 0)];
+    const portalWorldAngles = [0, -Math.PI / 2, Math.PI, Math.PI / 2];
+    
+    const portalLabelsTexts = ["ARQUITETURA DE SOFTWARE", "ENGENHARIA DA COMPUTAÇÃO", "ANÁLISE E DES. DE SISTEMAS", "DESENVOLVIMENTO FRONT-END"];
+    const portalColors = ['#22d3ee', '#c084fc', '#34d399', '#f59e0b'];
+
+    function createHologramLabel(text, color) {
+        const canvas = document.createElement('canvas'); canvas.width = 600; canvas.height = 90; const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'rgba(5, 2, 12, 0.85)'; ctx.fillRect(10, 10, 580, 70);
+        ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.strokeRect(10, 10, 580, 70);
+        ctx.fillStyle = color; ctx.font = 'Bold 24px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(text, 300, 45);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(canvas), transparent: true })); sprite.scale.set(8.5, 1.28, 1); return sprite;
+    }
+
+    function createPlasmaMesh(colorString) {
+        const plasmaGeo = new THREE.CircleGeometry(3.3, 32);
+        const plasmaMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(colorString), emissive: new THREE.Color(colorString), emissiveIntensity: 1.6, side: THREE.DoubleSide, transparent: true, opacity: 0.8, roughness: 0.1, metalness: 0.1 });
+        const mesh = new THREE.Mesh(plasmaGeo, plasmaMat); mesh.scale.set(0.75, 1.15, 1.0); return mesh;
+    }
+
+    const loader = new THREE.GLTFLoader(); const debbuger = document.getElementById('debug-status');
+    const islandUrl = 'https://cdn.jsdelivr.net/gh/brennoblops/Projeto-Software@main/floating%20sci-fi%20island%203d%20model%20(1).glb.txt';
+    const portalUrl = 'https://raw.githubusercontent.com/brennoblops/Projeto-Software/main/glowing%20stone%20arch%20portal%203d%20model.glb';
+
+    let assetsLoaded = false;
+
+    const loadingTimeout = setTimeout(() => {
+        if (!assetsLoaded) {
+            forceDismissLoading("Aviso: Modelo externo lento. Entrando em modo otimizado.");
+        }
+    }, 1500);
+
+    function forceDismissLoading(msg) {
+        assetsLoaded = true;
+        clearTimeout(loadingTimeout);
+        const ls = document.getElementById('loading-screen');
+        if (ls) ls.remove();
+        debbuger.innerText = msg;
+    }
+
+    const labelDist = 13.5; 
+    const labelHeight = 4.8;
+    const distPortal = 18;
+
+    for (let i = 0; i < 4; i++) {
+        const angle = i * (Math.PI / 2); const pX = Math.sin(angle) * distPortal; const pZ = -Math.cos(angle) * distPortal;
+        const plasma = createPlasmaMesh(portalColors[i]); plasma.position.set(pX * 0.96, 3.6, pZ * 0.96); plasma.rotation.y = angle; scene.add(plasma); plasmaMeshes.push(plasma);
+        const lblX = Math.sin(angle) * labelDist; const lblZ = -Math.cos(angle) * labelDist;
+        const lbl = createHologramLabel(portalLabelsTexts[i], portalColors[i]); lbl.position.set(lblX, labelHeight, lblZ); scene.add(lbl); portalLabels.push(lbl);
+    }
+
+    const safeDiagonalCoordinates = [{x: -8, z: -8}, {x: -11, z: -7}, {x: -7, z: -11}, {x: 8, z: -8}, {x: 11, z: -7}, {x: 7, z: -11}, {x: -8, z: 8}, {x: -11, z: 7}, {x: -7, z: 11}, {x: 8, z: 8}, {x: 11, z: 7}, {x: 7, z: 11}];
+    safeDiagonalCoordinates.forEach(pos => { const tree = create3DTree(); tree.position.set(pos.x, 0.1, pos.z); scene.add(tree); const stone = create3DSubStone(); stone.position.set(pos.x + (Math.random() * 2 - 1), 0.15, pos.z + (Math.random() * 2 - 1)); scene.add(stone); });
+
+    loader.load(islandUrl, function(gltfIsland) {
+        if(assetsLoaded && !gltfIsland) return;
+        const mainIsland = gltfIsland.scene; mainIsland.traverse(node => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
+        const box = new THREE.Box3().setFromObject(mainIsland); const scaleFactor = 55 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+        mainIsland.scale.set(scaleFactor, scaleFactor, scaleFactor); mainIsland.position.set(-((box.max.x + box.min.x) / 2) * scaleFactor, -(box.max.y * scaleFactor), -((box.max.z + box.min.z) / 2) * scaleFactor);
+        scene.add(mainIsland);
+
+        loader.load(portalUrl, function(gltfPortal) {
+            const basePortal = gltfPortal.scene; basePortal.traverse(node => { if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; } });
+            const pScale = 8 / Math.max(new THREE.Box3().setFromObject(basePortal).getSize(new THREE.Vector3()).x, new THREE.Box3().setFromObject(basePortal).getSize(new THREE.Vector3()).y, new THREE.Box3().setFromObject(basePortal).getSize(new THREE.Vector3()).z);
+            const groundOffsetY = -(new THREE.Box3().setFromObject(basePortal).min.y * pScale);
+
+            for (let i = 0; i < 4; i++) {
+                const angle = i * (Math.PI / 2); const pX = Math.sin(angle) * distPortal; const pZ = -Math.cos(angle) * distPortal;
+                const pMesh = basePortal.clone(); pMesh.scale.set(pScale, pScale, pScale); pMesh.position.set(pX, groundOffsetY, pZ); pMesh.rotation.y = angle; scene.add(pMesh);
+            }
+            forceDismissLoading("Ambiente Carregado 100%. Divirta-se!");
+        }, undefined, () => forceDismissLoading("Erro ao carregar portais. Modo de segurança ativo."));
+    }, undefined, () => forceDismissLoading("Erro ao carregar ilha. Modo de segurança ativo."));
+
+    function startIntroFlight() {
+        audioEnabled = document.getElementById('audio-toggle').checked;
+        if(audioEnabled && audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('main-menu').style.opacity = '0'; setTimeout(() => { document.getElementById('main-menu').style.display = 'none'; }, 600);
+        document.getElementById('reset-tour-btn').style.display = 'block';
+        introState = "FLIGHT"; play8BitSFX('flight'); debbuger.innerText = "Navegando...";
+    }
+
+    function triggerHyperSpaceReset() {
+        isInsideInfoCenter = false; isZoomedIn = false; introProgress = 0; centerTransitionProgress = 0; currentAngleIndex = 0; internalSubPanelIndex = 0;
+        camera.position.copy(menuPosition); camera.lookAt(0, 0, 0); introState = "MENU"; play8BitSFX('back');
+        document.getElementById('reset-tour-btn').style.display = 'none'; document.getElementById('main-menu').style.display = 'flex'; document.getElementById('main-menu').style.opacity = '1';
+        debbuger.innerText = "Retornado.";
+    }
+
+    function handleInteraction(clientX, clientY) {
+        if (introState !== "ACTIVE") return;
+        const screenWidth = window.innerWidth; const screenHeight = window.innerHeight;
+
+        if (isInsideInfoCenter) {
+            if (clientY > screenHeight * 0.75 && clientX > screenWidth * 0.35 && clientX < screenWidth * 0.65) {
+                isInsideInfoCenter = false; isZoomedIn = false; play8BitSFX('back'); return;
+            }
+            if (clientX < screenWidth * 0.3) {
+                internalSubPanelIndex = (internalSubPanelIndex - 1 + totalInternalPanels) % totalInternalPanels;
+                play8BitSFX('rotate');
+            } else if (clientX > screenWidth * 0.7) {
+                internalSubPanelIndex = (internalSubPanelIndex + 1) % totalInternalPanels;
+                play8BitSFX('rotate');
+            }
+        } 
+        else {
+            if (clientX < screenWidth * 0.3) {
+                if (!isZoomedIn) { 
+                    currentAngleIndex = (currentAngleIndex - 1 + 4) % 4; 
+                    targetRotationY += Math.PI / 2; 
+                    play8BitSFX('rotate'); 
+                }
+            } else if (clientX > screenWidth * 0.7) {
+                if (!isZoomedIn) { 
+                    currentAngleIndex = (currentAngleIndex + 1) % 4; 
+                    targetRotationY -= Math.PI / 2; 
+                    play8BitSFX('rotate'); 
+                }
+            } else {
+                if (!isZoomedIn) { 
+                    isZoomedIn = true; 
+                    play8BitSFX('coin'); 
+                } 
+                else {
+                    debbuger.innerText = 'Portal: ' + currentAngleIndex + ' | ' + portalLabelsTexts[currentAngleIndex];
+                    centerTransitionProgress = 0;
+                    buildCircularPanelsForArea(portalColors[currentAngleIndex]);
+
+                    isInsideInfoCenter = true; 
+                    internalSubPanelIndex = 0; 
+                    play8BitSFX('coin');
+                }
+            }
+        }
+    }
+
+    let lastInteractionTime = 0;
+    function throttledInteraction(clientX, clientY) {
+        const now = Date.now();
+        if (now - lastInteractionTime < 400) return;
+        lastInteractionTime = now;
+        handleInteraction(clientX, clientY);
+    }
+
+    window.addEventListener('touchstart', function(e) { throttledInteraction(e.touches[0].clientX, e.touches[0].clientY); });
+    window.addEventListener('click', function(e) { throttledInteraction(e.clientX, e.clientY); });
+
+    let clock = new THREE.Clock(); const currentRotation = { y: 0 };
+
+    function animate() {
+        requestAnimationFrame(animate); const elapsedTime = clock.getElapsedTime();
+
+        plasmaMeshes.forEach((mesh, index) => {
+            const posAttr = mesh.geometry.attributes.position;
+            for (let i = 0; i < posAttr.count; i++) { posAttr.setZ(i, Math.sin(posAttr.getX(i) * 1.5 + elapsedTime * 3.5 + index) * 0.08 + Math.cos(posAttr.getY(i) * 1.2 + elapsedTime * 2.8) * 0.08); }
+            posAttr.needsUpdate = true;
+        });
+
+        auroraWaves.forEach(w => {
+            const posAttr = w.mesh.geometry.attributes.position; const array = posAttr.array;
+            for (let i = 0; i < posAttr.count; i++) { array[i * 3 + 2] = w.origArray[i * 3 + 2] + Math.sin(elapsedTime * w.speed + (Math.floor(i / 2) * w.frequency)) * 6.5; }
+            posAttr.needsUpdate = true;
+        });
+
+        const starCheck = scene.children.find(c => c.isPoints);
+        if(starCheck) {
+            const starPosAttr = starCheck.geometry.attributes.position; const sArray = starPosAttr.array; const interstateFlight = (introState === "FLIGHT");
+            for (let i = 2; i < sArray.length; i += 3) { sArray[i] -= interstateFlight ? 7.5 : 0.15; if (sArray[i] < -200) sArray[i] = 200; }
+            starPosAttr.needsUpdate = true; starMaterial.size = interstateFlight ? 1.8 : 0.7;
+        }
+
+        if (introState === "MENU") { camera.position.copy(menuPosition); camera.lookAt(0, 0, 0); } 
+        else if (introState === "FLIGHT") {
+            introProgress += 0.007; if (introProgress >= 1) { introProgress = 1; introState = "ACTIVE"; }
+            camera.position.lerpVectors(menuPosition, centerPosition, introProgress); camera.lookAt(new THREE.Vector3(0, 4 - (4 * introProgress), -10 * introProgress));
+            currentRotation.y = camera.rotation.y; targetRotationY = camera.rotation.y;
+        } 
+        else if (introState === "ACTIVE") {
+            if (isInsideInfoCenter) { centerTransitionProgress = THREE.MathUtils.lerp(centerTransitionProgress, 1, 0.06); } 
+            else { centerTransitionProgress = THREE.MathUtils.lerp(centerTransitionProgress, 0, 0.08); }
+
+            infoPanelGroup.position.y = THREE.MathUtils.lerp(-40, 0, centerTransitionProgress);
+            backBtnMat.opacity = centerTransitionProgress * 0.8; backSprite.material.opacity = centerTransitionProgress;
+
+            const extOpFactor = 1 - centerTransitionProgress;
+            portalLabels.forEach(l => l.material.opacity = extOpFactor); plasmaMeshes.forEach(m => m.material.opacity = extOpFactor * 0.75);
+
+            if (isInsideInfoCenter) {
+                const currentPanelAngle = (internalSubPanelIndex * (2 * Math.PI / totalInternalPanels));
+                
+                infoPanels.forEach((p, idx) => {
+                    if (idx === internalSubPanelIndex) {
+                        p.material.opacity = centerTransitionProgress; 
+                    } else {
+                        p.material.opacity = 0; 
+                    }
+                });
+
+                innerInfoCamPosition.set(Math.sin(currentPanelAngle) * (distCenterPanel - 9.0), 14, Math.cos(currentPanelAngle) * (distCenterPanel - 9.0));
+                camera.position.lerp(innerInfoCamPosition, 0.08);
+
+                cameraTargetLookAt.set(Math.sin(currentPanelAngle) * distCenterPanel, 14, Math.cos(currentPanelAngle) * distCenterPanel);
+                camera.lookAt(cameraTargetLookAt);
+            } 
+            else {
+                infoPanels.forEach(p => p.material.opacity = 0);
+                currentRotation.y += (targetRotationY - currentRotation.y) * 0.08; 
+                camera.rotation.set(0, currentRotation.y, 0);
+
+                if (isZoomedIn) { camera.position.lerp(zoomTargets[currentAngleIndex], 0.08); } 
+                else { camera.position.lerp(centerPosition, 0.08); }
+            }
+        }
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => { camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth, window.innerHeight); });
+</script>
+</body>
+</html>
